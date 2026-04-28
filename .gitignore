@@ -2,4 +2,7 @@
 downloads/
 __pycache__/
 *.pyc
-
+generated_purchase_orders/
+result.csv
+~$*.csv
+.ipynb_checkpoints/

@@ -1,0 +1,216 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>메일 발주서 처리 UI</title>
+    <link rel="stylesheet" href="flow-ui.css" />
+  </head>
+  <body>
+    <header class="app-header">
+      <div>
+        <p class="eyebrow">Mail Purchase Order Desk</p>
+        <h1>메일 첨부 발주서 처리</h1>
+      </div>
+      <div class="header-meta" aria-label="현재 처리 상태">
+        <span>조회 0건</span>
+        <span>다운로드 0건</span>
+        <span>CSV 0건</span>
+      </div>
+    </header>
+
+    <main class="workspace">
+      <section class="query-panel" aria-labelledby="query-title">
+        <div class="section-title">
+          <div>
+            <p class="eyebrow">Step 1</p>
+            <h2 id="query-title">사용자 메일 조회</h2>
+          </div>
+          <button class="secondary-button" type="button" id="resetButton">초기화</button>
+        </div>
+
+        <form class="query-form" id="queryForm">
+          <label>
+            <span>메일 계정</span>
+            <input id="accountInput" type="email" placeholder=".env 설정 계정" autocomplete="email" readonly />
+          </label>
+          <label>
+            <span>관련 키워드</span>
+            <input id="searchInput" type="search" value="발주서, 발주, 구매요청, purchase order, PO, RFP, 제안요청, 검토요청" />
+          </label>
+          <label>
+            <span>조회 기간</span>
+            <select id="periodSelect">
+              <option value="7">최근 7일</option>
+              <option value="30">최근 30일</option>
+              <option value="all">전체</option>
+            </select>
+          </label>
+          <button class="primary-button" type="submit">메일 조회</button>
+        </form>
+
+        <div class="message-bar hidden" id="messageBar" role="status"></div>
+      </section>
+
+      <section class="mail-stage" aria-label="메일 선택 및 첨부파일 처리">
+        <section class="mail-list-panel" aria-labelledby="mail-list-title">
+          <div class="section-title compact">
+            <div>
+              <p class="eyebrow">Step 2</p>
+              <h2 id="mail-list-title">메일 선택</h2>
+            </div>
+            <span class="status-pill" id="queryStatus">대기</span>
+          </div>
+
+          <div class="mail-list-toolbar">
+            <button class="secondary-button" type="button" id="selectAllButton" disabled>현재 페이지 전체 선택</button>
+            <button class="primary-button" type="button" id="downloadButton" disabled>선택 PDF 다운로드</button>
+          </div>
+
+          <div class="empty-state" id="mailEmpty">
+            <strong>조회된 메일이 없습니다.</strong>
+            <p>상단 조건을 확인한 뒤 메일 조회를 누르면 발주서 후보 메일이 표시됩니다.</p>
+          </div>
+
+          <div class="table-shell hidden" id="mailTableShell">
+            <table class="mail-table">
+              <caption>발주서 후보 메일 목록</caption>
+              <thead>
+                <tr>
+                  <th scope="col">선택</th>
+                  <th scope="col">수신일시</th>
+                  <th scope="col">보낸 사람</th>
+                  <th scope="col">제목</th>
+                  <th scope="col">첨부</th>
+                </tr>
+              </thead>
+              <tbody id="mailRows"></tbody>
+            </table>
+          </div>
+
+          <nav class="pagination hidden" id="mailPagination" aria-label="메일 목록 페이지 이동">
+            <button class="secondary-button" type="button" id="prevPageButton">이전</button>
+            <div class="page-buttons" id="pageButtons"></div>
+            <button class="secondary-button" type="button" id="nextPageButton">다음</button>
+          </nav>
+        </section>
+
+        <aside class="detail-panel" aria-labelledby="detail-title">
+          <div class="section-title compact">
+            <div>
+              <p class="eyebrow">Preview</p>
+              <h2 id="detail-title">메일 상세</h2>
+            </div>
+          </div>
+
+          <div class="detail-empty" id="detailEmpty">
+            <p>메일을 선택하면 첨부 PDF와 처리 상태가 표시됩니다.</p>
+          </div>
+
+          <article class="mail-detail hidden" id="mailDetail">
+            <dl>
+              <div>
+                <dt>제목</dt>
+                <dd id="detailSubject"></dd>
+              </div>
+              <div>
+                <dt>보낸 사람</dt>
+                <dd id="detailFrom"></dd>
+              </div>
+              <div>
+                <dt>수신일시</dt>
+                <dd id="detailDate"></dd>
+              </div>
+              <div>
+                <dt>본문</dt>
+                <dd id="detailBody"></dd>
+              </div>
+            </dl>
+            <div>
+              <h3>첨부파일</h3>
+              <ul class="attachment-list" id="detailAttachments"></ul>
+            </div>
+          </article>
+        </aside>
+      </section>
+
+      <section class="result-grid" aria-label="다운로드 및 CSV 변환">
+        <section class="result-panel" aria-labelledby="download-title">
+          <div class="section-title compact">
+            <div>
+              <p class="eyebrow">Step 3</p>
+              <h2 id="download-title">다운로드된 PDF</h2>
+            </div>
+            <span class="status-pill" id="downloadStatus">0건</span>
+          </div>
+
+          <div class="empty-state compact-empty" id="downloadEmpty">
+            <strong>다운로드된 PDF가 없습니다.</strong>
+            <p>메일을 선택한 다음 선택 PDF 다운로드를 누릅니다.</p>
+          </div>
+
+          <div class="file-list hidden" id="downloadList"></div>
+        </section>
+
+        <section class="result-panel" aria-labelledby="csv-title">
+          <div class="section-title compact">
+            <div>
+              <p class="eyebrow">Step 4</p>
+              <h2 id="csv-title">CSV 변환 선택</h2>
+            </div>
+            <button class="primary-button" type="button" id="convertSelectedButton" disabled>선택 PDF CSV 변환</button>
+          </div>
+
+          <div class="empty-state compact-empty" id="csvEmpty">
+            <strong>변환 대기 파일이 없습니다.</strong>
+            <p>다운로드된 PDF를 선택하면 CSV 변환 버튼을 사용할 수 있습니다.</p>
+          </div>
+
+          <div class="file-list hidden" id="csvList"></div>
+        </section>
+      </section>
+
+      <section class="analysis-panel" aria-labelledby="analysis-title">
+        <div class="section-title compact">
+          <div>
+            <p class="eyebrow">Step 5</p>
+            <h2 id="analysis-title">PDF 텍스트 분석</h2>
+          </div>
+          <button class="primary-button" type="button" id="analyzeSelectedButton" disabled>선택 PDF 단어 분석</button>
+        </div>
+
+        <div class="empty-state compact-empty" id="analysisEmpty">
+          <strong>분석할 PDF가 없습니다.</strong>
+          <p>다운로드된 PDF를 선택하면 단어 등장횟수와 워드클라우드를 확인할 수 있습니다.</p>
+        </div>
+
+        <div class="analysis-content hidden" id="analysisContent">
+          <div class="analysis-summary" id="analysisSummary"></div>
+          <div class="analysis-grid">
+            <section class="wordcloud-box" aria-labelledby="wordcloud-title">
+              <h3 id="wordcloud-title">워드클라우드</h3>
+              <div class="word-cloud" id="wordCloud"></div>
+            </section>
+            <section class="frequency-box" aria-labelledby="frequency-title">
+              <h3 id="frequency-title">단어별 등장횟수</h3>
+              <div class="frequency-table-wrap">
+                <table class="frequency-table">
+                  <thead>
+                    <tr>
+                      <th scope="col">순위</th>
+                      <th scope="col">단어</th>
+                      <th scope="col">횟수</th>
+                    </tr>
+                  </thead>
+                  <tbody id="frequencyRows"></tbody>
+                </table>
+              </div>
+            </section>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <script src="flow-ui.js"></script>
+  </body>
+</html>
