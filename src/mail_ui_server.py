@@ -11,7 +11,7 @@ from csv_converter import convert_pdfs_to_csv
 from inbox_query import list_inbox_mails
 from pdf_downloader import download_pdf_attachments
 from word_analyzer import analyze_word_counts
-from word_cloud import build_word_cloud
+from word_cloud import build_word_cloud, build_word_cloud_image
 
 
 HOST = "127.0.0.1"
@@ -47,6 +47,8 @@ def static_response(handler: BaseHTTPRequestHandler, file_path: Path) -> None:
     handler.send_response(200)
     handler.send_header("Content-Type", content_type)
     handler.send_header("Content-Length", str(len(body)))
+    handler.send_header("Cache-Control", "no-store, max-age=0")
+    handler.send_header("Pragma", "no-cache")
     handler.end_headers()
     handler.wfile.write(body)
 
@@ -143,6 +145,7 @@ class MailUiHandler(BaseHTTPRequestHandler):
             files = [str(file_path) for file_path in payload.get("files", [])]
             analysis = analyze_word_counts(files)
             analysis["wordCloud"] = build_word_cloud(analysis["topWords"])
+            analysis["wordCloudImage"] = build_word_cloud_image(analysis["topWords"])
             json_response(self, 200, {"analysis": analysis})
         except Exception as exc:
             json_response(self, 500, {"error": str(exc)})

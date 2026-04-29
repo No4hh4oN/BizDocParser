@@ -259,17 +259,21 @@ function renderAnalysis() {
 
   const topWords = state.analysis.topWords || [];
   const cloudWords = state.analysis.wordCloud || topWords;
+  const cloudImage = state.analysis.wordCloudImage || "";
   analysisSummary.innerHTML = `
     <span>분석 파일 ${state.analysis.fileCount}개</span>
     <span>총 단어 ${state.analysis.totalWords}개</span>
     <span>고유 단어 ${state.analysis.uniqueWords}개</span>
   `;
 
-  wordCloud.innerHTML = cloudWords.slice(0, 35).map((item) => {
-    const size = Number(item.sizeRem || 1);
-    const color = item.color || "#2563a8";
-    return `<span class="cloud-word" style="--cloud-size: ${size.toFixed(2)}rem; --cloud-color: ${escapeHtml(color)};" title="${escapeHtml(item.word)} ${item.count}회">${escapeHtml(item.word)}</span>`;
-  }).join("");
+  wordCloud.classList.toggle("image-mode", Boolean(cloudImage));
+  wordCloud.innerHTML = cloudImage
+    ? `<img class="cloud-image" src="${escapeHtml(cloudImage)}" alt="워드클라우드 이미지" />`
+    : cloudWords.slice(0, 35).map((item) => {
+        const size = Number(item.sizeRem || 1);
+        const color = item.color || "#2563a8";
+        return `<span class="cloud-word" style="--cloud-size: ${size.toFixed(2)}rem; --cloud-color: ${escapeHtml(color)};" title="${escapeHtml(item.word)} ${item.count}회">${escapeHtml(item.word)}</span>`;
+      }).join("");
 
   frequencyRows.innerHTML = topWords.slice(0, 50).map((item, index) => `
     <tr>
