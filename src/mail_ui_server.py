@@ -13,6 +13,18 @@ from pdf_downloader import download_pdf_attachments
 from word_analyzer import analyze_word_counts
 from word_cloud import build_word_cloud, build_word_cloud_image
 
+# RFP 분석 연동을 위한 추가 임포트 (학습용 주석: 기존 기능을 보존하며 새로운 분석 기능을 확장하기 위함)
+import sys
+from pathlib import Path
+if str(BASE_DIR) not in sys.path:
+    sys.path.insert(0, str(BASE_DIR))
+
+try:
+    from rfp_analysis.pipeline import RfpAnalysisPipeline
+    RFP_PIPELINE_AVAILABLE = True
+except ImportError:
+    RFP_PIPELINE_AVAILABLE = False
+
 
 HOST = "127.0.0.1"
 PORT = 8000
@@ -95,6 +107,10 @@ class MailUiHandler(BaseHTTPRequestHandler):
             self.handle_analyze()
             return
 
+        if parsed.path == "/api/rfp-analyze":
+            self.handle_rfp_analyze()
+            return
+
         self.send_error(404)
 
     def handle_config(self) -> None:
@@ -149,6 +165,34 @@ class MailUiHandler(BaseHTTPRequestHandler):
             json_response(self, 200, {"analysis": analysis})
         except Exception as exc:
             json_response(self, 500, {"error": str(exc)})
+
+    def handle_rfp_analyze(self) -> None:
+        """
+        웹 UI로부터 요청받은 PDF 파일들을 RFP 파이프라인으로 분석합니다.
+        학습용 주석: 기존 분석(handle_analyze)과는 별도로, 비즈니스 도메인 지식을 활용한 RFP 전용 분석을 수행합니다.
+        """
+        if not RFP_PIPELINE_AVAILABLE:
+            json_response(self, 500, {"error": "RFP 분석 모듈(rfp_analysis)을 로드할 수 없습니다."})
+            return
+
+        try:
+            payload = read_json_body(self)
+            files = [str(file_path) for file_path in payload.get("files", [])]
+            if not files:
+                json_response(self, 400, {"error": "분석할 파일을 선택하세요."})
+                return
+
+            pipeline = RfpAnalysisPipeline()
+            results = []
+            for file_path in files:
+                from csv_converter import resolve_downloaded_pdf
+                full_path = resolve_downloaded_pdf(file_path)
+                result = pipeline.run(full_path)
+                results.append(result)
+
+            json_response(self, 200, {"rfp_results": results})
+        except Exception as exc:
+            json_response(self, 500, {"error": f"RFP 분석 중 오류 발생: {str(exc)}"})
 
 
 def main() -> None:

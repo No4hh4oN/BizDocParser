@@ -1,0 +1,11 @@
+pdfplumber
+pandas
+openpyxl
+kiwipiepy
+pydantic
+wordcloud
+matplotlib
+python-dotenv
+reportlab
+openai
+PyYAML

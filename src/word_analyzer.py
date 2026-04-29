@@ -6,6 +6,14 @@ from collections import Counter
 from csv_converter import resolve_downloaded_pdf
 from send_purchase_orders import extract_pdf_assets
 
+# Kiwi 형태소 분석기 연동 (학습용 주석: 정규식보다 정확한 한국어 분석을 위해 선택적으로 사용합니다)
+try:
+    from kiwipiepy import Kiwi
+    kiwi = Kiwi()
+    KIWI_AVAILABLE = True
+except ImportError:
+    KIWI_AVAILABLE = False
+
 
 STOPWORDS = {
     # General particles / connective words
@@ -279,6 +287,23 @@ STOPWORDS = {
 
 
 def tokenize_text(text: str) -> list[str]:
+    """
+    텍스트를 토큰화합니다. Kiwi가 사용 가능하면 Kiwi를 사용하고, 그렇지 않으면 정규식을 사용합니다.
+    학습용 주석: 하위 호환성과 환경 유연성을 위해 두 가지 방식을 모두 지원합니다.
+    """
+    if KIWI_AVAILABLE:
+        # Kiwi를 사용한 형태소 분석 및 명사 추출
+        tokens = []
+        result = kiwi.tokenize(text)
+        for token in result:
+            # 명사(NNG, NNP)와 영문(SL) 위주로 추출
+            if token.tag in {"NNG", "NNP", "SL"} and len(token.form) >= 2:
+                word = token.form.lower() if token.tag == "SL" else token.form
+                if word not in STOPWORDS:
+                    tokens.append(word)
+        return tokens
+
+    # 기존 정규식 기반 토큰화 (Kiwi가 없을 때를 대비한 Fallback)
     tokens: list[str] = []
     for raw_token in re.findall(r"[가-힣A-Za-z0-9]+", text):
         token = raw_token.lower() if raw_token.isascii() else raw_token
