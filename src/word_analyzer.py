@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import re
 from collections import Counter
+from pathlib import Path
 
 from csv_converter import resolve_downloaded_pdf
 from send_purchase_orders import extract_pdf_assets
@@ -320,14 +321,12 @@ def analyze_word_counts(files: list[str], top_n: int = 80) -> dict[str, object]:
         raise RuntimeError("분석할 PDF를 선택하세요.")
 
     pdf_paths = [resolve_downloaded_pdf(file_path) for file_path in files]
-    counter: Counter[str] = Counter()
-    for pdf_path in pdf_paths:
-        assets = extract_pdf_assets(pdf_path)
-        counter.update(tokenize_text(str(assets.get("text", ""))))
+    return analyze_word_counts_from_paths(pdf_paths, top_n=top_n)
 
-    total_words = sum(counter.values())
+
+def _to_top_words(counter: Counter[str], top_n: int) -> list[dict[str, object]]:
     max_count = max(counter.values(), default=1)
-    top_words = [
+    return [
         {
             "word": word,
             "count": count,
@@ -335,9 +334,36 @@ def analyze_word_counts(files: list[str], top_n: int = 80) -> dict[str, object]:
         }
         for word, count in counter.most_common(top_n)
     ]
+
+
+def analyze_word_counts_from_paths(pdf_paths: list[Path], top_n: int = 80) -> dict[str, object]:
+    if not pdf_paths:
+        raise RuntimeError("분석할 PDF를 선택하세요.")
+
+    total_counter: Counter[str] = Counter()
+    per_file: list[dict[str, object]] = []
+
+    for pdf_path in pdf_paths:
+        assets = extract_pdf_assets(pdf_path)
+        file_counter: Counter[str] = Counter()
+        file_counter.update(tokenize_text(str(assets.get("text", ""))))
+        total_counter.update(file_counter)
+
+        per_file.append(
+            {
+                "fileId": pdf_path.name,
+                "fileName": pdf_path.name,
+                "relativePath": str(pdf_path),
+                "totalWords": sum(file_counter.values()),
+                "uniqueWords": len(file_counter),
+                "topWords": _to_top_words(file_counter, top_n),
+            }
+        )
+
     return {
         "fileCount": len(pdf_paths),
-        "totalWords": total_words,
-        "uniqueWords": len(counter),
-        "topWords": top_words,
+        "totalWords": sum(total_counter.values()),
+        "uniqueWords": len(total_counter),
+        "topWords": _to_top_words(total_counter, top_n),
+        "perFile": per_file,
     }
