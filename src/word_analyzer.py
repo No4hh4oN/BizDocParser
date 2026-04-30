@@ -2,9 +2,18 @@ from __future__ import annotations
 
 import re
 from collections import Counter
+from pathlib import Path
 
 from csv_converter import resolve_downloaded_pdf
 from send_purchase_orders import extract_pdf_assets
+
+# Kiwi 형태소 분석기 연동 (학습용 주석: 정규식보다 정확한 한국어 분석을 위해 선택적으로 사용합니다)
+try:
+    from kiwipiepy import Kiwi
+    kiwi = Kiwi()
+    KIWI_AVAILABLE = True
+except ImportError:
+    KIWI_AVAILABLE = False
 
 
 STOPWORDS = {
@@ -279,6 +288,23 @@ STOPWORDS = {
 
 
 def tokenize_text(text: str) -> list[str]:
+    """
+    텍스트를 토큰화합니다. Kiwi가 사용 가능하면 Kiwi를 사용하고, 그렇지 않으면 정규식을 사용합니다.
+    학습용 주석: 하위 호환성과 환경 유연성을 위해 두 가지 방식을 모두 지원합니다.
+    """
+    if KIWI_AVAILABLE:
+        # Kiwi를 사용한 형태소 분석 및 명사 추출
+        tokens = []
+        result = kiwi.tokenize(text)
+        for token in result:
+            # 명사(NNG, NNP)와 영문(SL) 위주로 추출
+            if token.tag in {"NNG", "NNP", "SL"} and len(token.form) >= 2:
+                word = token.form.lower() if token.tag == "SL" else token.form
+                if word not in STOPWORDS:
+                    tokens.append(word)
+        return tokens
+
+    # 기존 정규식 기반 토큰화 (Kiwi가 없을 때를 대비한 Fallback)
     tokens: list[str] = []
     for raw_token in re.findall(r"[가-힣A-Za-z0-9]+", text):
         token = raw_token.lower() if raw_token.isascii() else raw_token
@@ -295,14 +321,12 @@ def analyze_word_counts(files: list[str], top_n: int = 80) -> dict[str, object]:
         raise RuntimeError("분석할 PDF를 선택하세요.")
 
     pdf_paths = [resolve_downloaded_pdf(file_path) for file_path in files]
-    counter: Counter[str] = Counter()
-    for pdf_path in pdf_paths:
-        assets = extract_pdf_assets(pdf_path)
-        counter.update(tokenize_text(str(assets.get("text", ""))))
+    return analyze_word_counts_from_paths(pdf_paths, top_n=top_n)
 
-    total_words = sum(counter.values())
+
+def _to_top_words(counter: Counter[str], top_n: int) -> list[dict[str, object]]:
     max_count = max(counter.values(), default=1)
-    top_words = [
+    return [
         {
             "word": word,
             "count": count,
@@ -310,9 +334,36 @@ def analyze_word_counts(files: list[str], top_n: int = 80) -> dict[str, object]:
         }
         for word, count in counter.most_common(top_n)
     ]
+
+
+def analyze_word_counts_from_paths(pdf_paths: list[Path], top_n: int = 80) -> dict[str, object]:
+    if not pdf_paths:
+        raise RuntimeError("분석할 PDF를 선택하세요.")
+
+    total_counter: Counter[str] = Counter()
+    per_file: list[dict[str, object]] = []
+
+    for pdf_path in pdf_paths:
+        assets = extract_pdf_assets(pdf_path)
+        file_counter: Counter[str] = Counter()
+        file_counter.update(tokenize_text(str(assets.get("text", ""))))
+        total_counter.update(file_counter)
+
+        per_file.append(
+            {
+                "fileId": pdf_path.name,
+                "fileName": pdf_path.name,
+                "relativePath": str(pdf_path),
+                "totalWords": sum(file_counter.values()),
+                "uniqueWords": len(file_counter),
+                "topWords": _to_top_words(file_counter, top_n),
+            }
+        )
+
     return {
         "fileCount": len(pdf_paths),
-        "totalWords": total_words,
-        "uniqueWords": len(counter),
-        "topWords": top_words,
+        "totalWords": sum(total_counter.values()),
+        "uniqueWords": len(total_counter),
+        "topWords": _to_top_words(total_counter, top_n),
+        "perFile": per_file,
     }

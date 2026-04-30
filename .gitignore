@@ -6,3 +6,9 @@ generated_purchase_orders/
 result.csv
 ~$*.csv
 .ipynb_checkpoints/
+outputs/
+.venv/
+.vscode/
+scratch/
+*.log
+*.tmp

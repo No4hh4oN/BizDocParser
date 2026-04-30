@@ -1,0 +1,29 @@
+{
+  "position_assignment_limits": {
+    "수석": {
+      "max_concurrent_projects": 2,
+      "note": "기술 리더, 아키텍트, 핵심 의사결정 담당"
+    },
+    "책임": {
+      "max_concurrent_projects": 2,
+      "note": "PM/파트 리드, 보안·인프라·데이터 리드 담당"
+    },
+    "선임": {
+      "max_concurrent_projects": 2,
+      "note": "백엔드·프론트엔드·AI·데이터 핵심 실무 담당"
+    },
+    "주임": {
+      "max_concurrent_projects": 1,
+      "note": "기능 개발, 분석, 테스트, 운영 실무 담당"
+    },
+    "사원": {
+      "max_concurrent_projects": 1,
+      "note": "개발/테스트/문서화 보조 중심"
+    }
+  },
+  "label_definition": [
+    "핵심 역할 수행 가능",
+    "일부 역할·일부 기능 담당 가능",
+    "참여 불가"
+  ]
+}
